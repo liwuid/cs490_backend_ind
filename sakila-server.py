@@ -12,7 +12,7 @@ mysql = MySQL(app)
 @app.route('/')
 def home():
     return "Sakila Flask API is running! Go to /allfilms to see films."
-
+ 
 @app.route('/films')
 def films():
     cursor = mysql.connection.cursor()
