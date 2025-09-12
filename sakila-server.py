@@ -8,7 +8,7 @@ app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = '5283'
 app.config['MYSQL_DB'] = 'sakila'
 mysql = MySQL(app)
-
+   
 @app.route('/')
 def home():
     return "Sakila Flask API is running! Go to /allfilms to see films."
