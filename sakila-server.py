@@ -8,7 +8,8 @@ app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = '5283'
 app.config['MYSQL_DB'] = 'sakila'
 mysql = MySQL(app)
-   
+
+#-------------------------landing page---------------------------#
 @app.route('/')
 def home():
     return "Sakila Flask API is running! Go to /allfilms to see films."
@@ -96,6 +97,27 @@ def topfiveactorfilms(actor_id):
         limit 5;
     """
     cursor.execute(query, (actor_id,))
+    result = cursor.fetchall()
+    cursor.close()
+    return jsonify(result)
+
+#-------------------------films page---------------------------#
+
+@app.route('/films/search')
+def searchfilms():
+    search = request.args.get('search', '')
+    cursor = mysql.connection.cursor()
+    query = """
+        select film.film_id, film.title, category.name as category
+        from film
+        join film_category on film_category.film_id = film.film_id
+        join category on category.category_id = film_category.category_id
+        join film_actor on film_actor.film_id = film.film_id
+        join actor on actor.actor_id = film_actor.actor_id
+        where film.title like %s or category.name like %s or actor.first_name like %s or actor.last_name like %s
+    """
+    like = f"%{search}%"
+    cursor.execute(query, (like, like, like, like))
     result = cursor.fetchall()
     cursor.close()
     return jsonify(result)
