@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-from flask_paginate import Pagination
+from flask_paginate import Pagination, get_page_parameter
 from flask_mysqldb import MySQL
 
 app = Flask(__name__)
@@ -12,7 +12,7 @@ mysql = MySQL(app)
 #-------------------------landing page---------------------------#
 @app.route('/')
 def home():
-    return "Sakila Flask API is running! Go to /allfilms to see films."
+    return "Sakila Database"
 
 @app.route('/topfivefilms')
 def topfivefilms():
@@ -44,7 +44,7 @@ def filmdetails(film_id):
         join language on language.language_id = film.language_id
         where film.film_id = %s;
     """
-    cursor.execute(query)
+    cursor.execute(query, (film_id,))
     result = cursor.fetchall()
     cursor.close()
     return jsonify(result)
@@ -77,7 +77,7 @@ def actordetails(actor_id):
         where actor.actor_id = %s
         group by actor.actor_id;
     """
-    cursor.execute(query)
+    cursor.execute(query, (actor_id,))
     result = cursor.fetchall()
     cursor.close()
     return jsonify(result)
@@ -108,7 +108,7 @@ def searchfilms():
     search = request.args.get('search', '')
     cursor = mysql.connection.cursor()
     query = """
-        select film.film_id, film.title, category.name as category
+        select distinct film.film_id, film.title, category.name as category
         from film
         join film_category on film_category.film_id = film.film_id
         join category on category.category_id = film_category.category_id
@@ -122,6 +122,54 @@ def searchfilms():
     cursor.close()
     return jsonify(result)
 
+@app.route('/films/<film_id>')
+def details(film_id):
+    cursor = mysql.connection.cursor()
+    query = """
+        select film.film_id, film.title, film.description, film.release_year, category.name as category, language.name as language, film.rating, film.length
+        from film
+        join film_category on film_category.film_id = film.film_id
+        join category on category.category_id = film_category.category_id
+        join language on language.language_id = film.language_id
+        where film.film_id = %s;
+    """
+    cursor.execute(query, (film_id,))
+    result = cursor.fetchone()
+    cursor.close()
+    return jsonify(result)
+
+#-------------------------customer page---------------------------#
+#list of customers with pagination
+@app.route('/customers')
+def customers():
+    cursor = mysql.connection.cursor()
+    query = "select count(*) from customer;"
+    cursor.execute(query)
+    total = cursor.fetchone()[0]
+
+    page = request.args.get(get_page_parameter(), type=int, default=1)
+    per_page = 10
+    offset = (page - 1) * per_page
+    pages = (total + per_page - 1) // per_page
+
+    query = """
+        select customer_id, first_name, last_name 
+        from customer
+        order by last_name asc, first_name asc
+        limit %s offset %s;
+    """
+    cursor.execute(query, (per_page, offset))
+    customers = cursor.fetchall()
+    cursor.close()
+
+    pagination = {
+        'page': page,
+        'per_page': per_page,
+        'total': total,
+        'pages': pages
+    }
+
+    return jsonify({'customers': customers, 'pagination': pagination})
 
 if __name__ == '__main__':
     app.run(debug=True)
