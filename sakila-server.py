@@ -1,5 +1,4 @@
 from flask import Flask, jsonify, request
-from flask_paginate import Pagination, get_page_parameter
 from flask_mysqldb import MySQL
 
 app = Flask(__name__)
@@ -12,11 +11,22 @@ mysql = MySQL(app)
 #-------------------------landing page---------------------------#
 @app.route('/')
 def home():
-    return "Sakila Database"
+    return jsonify({
+        "message": "Sakila Database",
+        "endpoints": [
+            "/topfivefilms",
+            "/films/search?search=...",
+            "/film/<film_id>",
+            "/topfiveactors",
+            "/actor/<actor_id>",
+            "/topfive/actor/<actor_id>",
+            "/customers?page=1"
+        ]
+    })
 
 @app.route('/topfivefilms')
 def topfivefilms():
-    cursor = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(dictionary=True)
     query = """
         select film.film_id, film.title, category.name, count(rental_id) as rented
         from rental 
@@ -35,7 +45,7 @@ def topfivefilms():
 
 @app.route('/film/<film_id>')
 def filmdetails(film_id):
-    cursor = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(dictionary=True)
     query = """
         select film.film_id, film.title, film.description, film.release_year, category.name as category, language.name as language
         from film
@@ -51,7 +61,7 @@ def filmdetails(film_id):
 
 @app.route('/topfiveactors')
 def topfiveactors():
-    cursor = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(dictionary=True)
     query = """
         select actor.actor_id, actor.first_name, actor.last_name, count(film.film_id) as movies
         from film_actor
@@ -68,7 +78,7 @@ def topfiveactors():
 
 @app.route('/actor/<actor_id>')
 def actordetails(actor_id):
-    cursor = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(dictionary=True)
     query = """
         select actor.actor_id, actor.first_name, actor.last_name, count(film.film_id) as movies
         from film_actor
@@ -84,7 +94,7 @@ def actordetails(actor_id):
 
 @app.route('/topfive/actor/<actor_id>')
 def topfiveactorfilms(actor_id):
-    cursor = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(dictionary=True)
     query = """
         select film.film_id, film.title, count(rental_id) as rental_count
         from rental
@@ -106,7 +116,7 @@ def topfiveactorfilms(actor_id):
 @app.route('/films/search')
 def searchfilms():
     search = request.args.get('search', '')
-    cursor = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(dictionary=True)
     query = """
         select distinct film.film_id, film.title, category.name as category
         from film
@@ -124,7 +134,7 @@ def searchfilms():
 
 @app.route('/films/<film_id>')
 def details(film_id):
-    cursor = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(dictionary=True)
     query = """
         select film.film_id, film.title, film.description, film.release_year, category.name as category, language.name as language, film.rating, film.length
         from film
@@ -142,12 +152,12 @@ def details(film_id):
 #list of customers with pagination
 @app.route('/customers')
 def customers():
-    cursor = mysql.connection.cursor()
+    cursor = mysql.connection.cursor(dictionary=True)
     query = "select count(*) from customer;"
     cursor.execute(query)
     total = cursor.fetchone()[0]
 
-    page = request.args.get(get_page_parameter(), type=int, default=1)
+    page = request.args.get("page", type=int, default=1)
     per_page = 10
     offset = (page - 1) * per_page
     pages = (total + per_page - 1) // per_page
