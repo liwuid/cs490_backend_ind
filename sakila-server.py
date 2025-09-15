@@ -130,6 +130,9 @@ def searchfilms():
     cursor.execute(query, (like, like, like, like))
     result = cursor.fetchall()
     cursor.close()
+
+    if not result:
+        return jsonify({"message": "no results"})
     return jsonify(result)
 
 @app.route('/films/<film_id>')
@@ -146,6 +149,9 @@ def details(film_id):
     cursor.execute(query, (film_id,))
     result = cursor.fetchone()
     cursor.close()
+
+    if not result:
+        return jsonify({"message": "no results"})
     return jsonify(result)
 
 #-------------------------customer page---------------------------#
