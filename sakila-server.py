@@ -1,7 +1,11 @@
 from flask import Flask, jsonify, request
 from flask_mysqldb import MySQL
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
+
+
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = '5283'
@@ -26,7 +30,7 @@ def home():
 
 @app.route('/topfivefilms')
 def topfivefilms():
-    cursor = mysql.connection.cursor(dictionary=True)
+    cursor = mysql.connection.cursor()
     query = """
         select film.film_id, film.title, category.name, count(rental_id) as rented
         from rental 
@@ -45,7 +49,7 @@ def topfivefilms():
 
 @app.route('/film/<film_id>')
 def filmdetails(film_id):
-    cursor = mysql.connection.cursor(dictionary=True)
+    cursor = mysql.connection.cursor()
     query = """
         select film.film_id, film.title, film.description, film.release_year, category.name as category, language.name as language
         from film
@@ -61,7 +65,7 @@ def filmdetails(film_id):
 
 @app.route('/topfiveactors')
 def topfiveactors():
-    cursor = mysql.connection.cursor(dictionary=True)
+    cursor = mysql.connection.cursor()
     query = """
         select actor.actor_id, actor.first_name, actor.last_name, count(film.film_id) as movies
         from film_actor
@@ -78,7 +82,7 @@ def topfiveactors():
 
 @app.route('/actor/<actor_id>')
 def actordetails(actor_id):
-    cursor = mysql.connection.cursor(dictionary=True)
+    cursor = mysql.connection.cursor()
     query = """
         select actor.actor_id, actor.first_name, actor.last_name, count(film.film_id) as movies
         from film_actor
@@ -94,7 +98,7 @@ def actordetails(actor_id):
 
 @app.route('/topfive/actor/<actor_id>')
 def topfiveactorfilms(actor_id):
-    cursor = mysql.connection.cursor(dictionary=True)
+    cursor = mysql.connection.cursor()
     query = """
         select film.film_id, film.title, count(rental_id) as rental_count
         from rental
@@ -116,7 +120,7 @@ def topfiveactorfilms(actor_id):
 @app.route('/films/search')
 def searchfilms():
     search = request.args.get('search', '')
-    cursor = mysql.connection.cursor(dictionary=True)
+    cursor = mysql.connection.cursor()
     query = """
         select distinct film.film_id, film.title, category.name as category
         from film
@@ -137,7 +141,7 @@ def searchfilms():
 
 @app.route('/films/<film_id>')
 def details(film_id):
-    cursor = mysql.connection.cursor(dictionary=True)
+    cursor = mysql.connection.cursor()
     query = """
         select film.film_id, film.title, film.description, film.release_year, category.name as category, language.name as language, film.rating, film.length
         from film
@@ -155,10 +159,9 @@ def details(film_id):
     return jsonify(result)
 
 #-------------------------customer page---------------------------#
-#list of customers with pagination
 @app.route('/customers')
 def customers():
-    cursor = mysql.connection.cursor(dictionary=True)
+    cursor = mysql.connection.cursor()
     query = "select count(*) from customer;"
     cursor.execute(query)
     total = cursor.fetchone()[0]
