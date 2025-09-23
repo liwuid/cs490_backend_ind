@@ -139,25 +139,6 @@ def searchfilms():
         return jsonify({"message": "no results"})
     return jsonify(result)
 
-@app.route('/films/<film_id>')
-def details(film_id):
-    cursor = mysql.connection.cursor()
-    query = """
-        select film.film_id, film.title, film.description, film.release_year, category.name as category, language.name as language, film.rating, film.length
-        from film
-        join film_category on film_category.film_id = film.film_id
-        join category on category.category_id = film_category.category_id
-        join language on language.language_id = film.language_id
-        where film.film_id = %s;
-    """
-    cursor.execute(query, (film_id,))
-    result = cursor.fetchone()
-    cursor.close()
-
-    if not result:
-        return jsonify({"message": "no results"})
-    return jsonify(result)
-
 #-------------------------customer page---------------------------#
 @app.route('/customers')
 def customers():
