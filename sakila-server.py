@@ -51,7 +51,7 @@ def topfivefilms():
 def filmdetails(film_id):
     cursor = mysql.connection.cursor()
     query = """
-        select film.film_id, film.title, film.description, film.release_year, category.name as category, language.name as language
+        select film.film_id, film.title, film.description, film.rating, film.release_year, category.name as category, language.name as language 
         from film
         join film_category on film.film_id = film_category.film_id
         join category on category.category_id = film_category.category_id
@@ -122,7 +122,7 @@ def searchfilms():
     search = request.args.get('search', '')
     cursor = mysql.connection.cursor()
     query = """
-        select distinct film.film_id, film.title, category.name as category
+        select distinct film.film_id, film.title, category.name as category, film.rating, film.release_year
         from film
         join film_category on film_category.film_id = film.film_id
         join category on category.category_id = film_category.category_id
@@ -153,7 +153,7 @@ def customers():
     pages = (total + per_page - 1) // per_page
 
     query = """
-        select customer_id, first_name, last_name 
+        select customer_id, first_name, last_name, email
         from customer
         order by last_name asc, first_name asc
         limit %s offset %s;
