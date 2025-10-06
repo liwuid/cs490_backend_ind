@@ -179,6 +179,30 @@ def rent_film():
 
     return jsonify({"message": "film rented successfully"})
 
+@app.route('/return', methods=['POST'])
+def return_film():
+    data = request.get_json()
+    rental_id = data.get("rental_id")
+
+    if not rental_id:
+        return jsonify({"message": "no rental id provided"})
+    
+    cursor = mysql.connection.cursor()
+    cursor.execute("""
+        update rental
+        set return_date = NOW()
+        where rental_id = %s and return_date is null;
+    """, (rental_id,))
+
+    if cursor.rowcount == 0:
+        cursor.close()
+        return jsonify({"message": "rental not found"})
+    
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"message": "film returned sucessfully"})
+
 #-------------------------customer page---------------------------#
 @app.route('/customers')
 def customers():
@@ -198,7 +222,7 @@ def customers():
         order by last_name asc, first_name asc
         limit %s offset %s;
     """
-    cursor.execute(query, (per_page, offset))
+    cursor.execute(query, (per_page, offset,))
     customers = cursor.fetchall()
     cursor.close()
 
