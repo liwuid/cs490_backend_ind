@@ -139,6 +139,46 @@ def searchfilms():
         return jsonify({"message": "no results"})
     return jsonify(result)
 
+@app.route('/rent', methods=['POST'])
+def rent_film():
+    data = request.get_json()
+    film_id = data.get("film_id")
+    customer_id = data.get("customer_id")
+
+    if not customer_id or not film_id:
+        return jsonify({"message": "no id provided"})
+    
+    cursor = mysql.connection.cursor()
+
+    cursor.execute("""
+        select inventory_id
+        from inventory
+        where film_id = %s
+        and inventory_id not in (
+            select inventory_id
+            from rental
+            where return_date is NULL
+        )
+        limit 1;
+    """, (film_id,))
+    inventory = cursor.fetchone()
+
+    if not inventory:
+        cursor.close()
+        return jsonify({"message": "there are no available copies for this film"})
+    
+    inventory_id = inventory[0]
+
+    cursor.execute("""
+        insert into rental (rental_date, inventory_id, customer_id, staff_id)
+        values (NOW(), %s, %s, 1);
+    """, (inventory_id, customer_id))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"message": "film rented successfully"})
+
 #-------------------------customer page---------------------------#
 @app.route('/customers')
 def customers():
