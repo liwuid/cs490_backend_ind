@@ -143,13 +143,13 @@ def searchfilms():
 def film_inventory(film_id):
     cursor = mysql.connection.cursor()
     cursor.execute("""
-        SELECT COUNT(inventory.inventory_id)
-        FROM inventory
-        WHERE inventory.film_id = %s
-        AND inventory.inventory_id NOT IN (
-            SELECT inventory_id 
-            FROM rental 
-            WHERE return_date IS NULL
+        select count(inventory.inventory_id)
+        from inventory
+        where inventory.film_id = %s
+        and inventory.inventory_id not in (
+            select inventory_id 
+            from rental 
+            where return_date is null
         );
     """, (film_id,))
     inventory = cursor.fetchone()[0]
@@ -188,7 +188,7 @@ def rent_film():
 
     cursor.execute("""
         insert into rental (rental_date, inventory_id, customer_id, staff_id)
-        values (NOW(), %s, %s, 1);
+        values (now(), %s, %s, 1);
     """, (inventory_id, customer_id))
 
     mysql.connection.commit()
@@ -207,7 +207,7 @@ def return_film():
     cursor = mysql.connection.cursor()
     cursor.execute("""
         update rental
-        set return_date = NOW()
+        set return_date = now()
         where rental_id = %s and return_date is null;
     """, (rental_id,))
 
