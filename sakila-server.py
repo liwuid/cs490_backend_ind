@@ -136,8 +136,25 @@ def searchfilms():
     cursor.close()
 
     if not result:
-        return jsonify({"message": "no results"})
+        return jsonify({"message": "No results"})
     return jsonify(result)
+
+@app.route('/films/inventory/<film_id>')
+def film_inventory(film_id):
+    cursor = mysql.connection.cursor()
+    cursor.execute("""
+        SELECT COUNT(inventory.inventory_id)
+        FROM inventory
+        WHERE inventory.film_id = %s
+        AND inventory.inventory_id NOT IN (
+            SELECT inventory_id 
+            FROM rental 
+            WHERE return_date IS NULL
+        );
+    """, (film_id,))
+    inventory = cursor.fetchone()[0]
+    cursor.close()
+    return jsonify({"film_copies": inventory})
 
 @app.route('/rent', methods=['POST'])
 def rent_film():
@@ -146,7 +163,7 @@ def rent_film():
     customer_id = data.get("customer_id")
 
     if not customer_id or not film_id:
-        return jsonify({"message": "no id provided"})
+        return jsonify({"message": "No id provided"})
     
     cursor = mysql.connection.cursor()
 
@@ -165,7 +182,7 @@ def rent_film():
 
     if not inventory:
         cursor.close()
-        return jsonify({"message": "there are no available copies for this film"})
+        return jsonify({"message": "There are no available copies for this film"})
     
     inventory_id = inventory[0]
 
@@ -177,7 +194,7 @@ def rent_film():
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"message": "film rented successfully"})
+    return jsonify({"message": "Film rented successfully!"})
 
 @app.route('/return', methods=['POST'])
 def return_film():
@@ -185,7 +202,7 @@ def return_film():
     rental_id = data.get("rental_id")
 
     if not rental_id:
-        return jsonify({"message": "no rental id provided"})
+        return jsonify({"message": "No rental id provided"})
     
     cursor = mysql.connection.cursor()
     cursor.execute("""
@@ -196,33 +213,56 @@ def return_film():
 
     if cursor.rowcount == 0:
         cursor.close()
-        return jsonify({"message": "rental not found"})
+        return jsonify({"message": "Rental not found"})
     
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"message": "film returned sucessfully"})
+    return jsonify({"message": "Film returned successfully!"})
 
 #-------------------------customer page---------------------------#
 @app.route('/customers')
 def customers():
     cursor = mysql.connection.cursor()
-    query = "select count(*) from customer;"
-    cursor.execute(query)
-    total = cursor.fetchone()[0]
 
     page = request.args.get("page", type=int, default=1)
     per_page = 10
     offset = (page - 1) * per_page
-    pages = (total + per_page - 1) // per_page
+
+    search = request.args.get("search", "").strip()
+    sort_by = request.args.get("sort_by", "last_name")
+    sort_order = request.args.get("sort_order", "asc").lower()
+    columns = {"customer_id", "first_name", "last_name", "email"}
+    
+    if sort_by not in columns:
+        sort_by = "last_name"
+    if sort_order not in {"asc", "desc"}:
+        sort_order = "asc"
 
     query = """
+        select count(*)
+        from customer
+        where (%s = '' 
+            or customer_id = %s 
+            or first_name like %s 
+            or last_name like %s)
+    """
+    like = f"%{search}%"
+    cursor.execute(query, (search, search, like, like))
+    total = cursor.fetchone()[0]
+    pages = (total + per_page - 1) // per_page
+    
+    query = f"""
         select customer_id, first_name, last_name, email
         from customer
-        order by last_name asc, first_name asc
+        where (%s = ''
+            or customer_id = %s
+            or first_name like %s
+            or last_name like %s)
+        order by {sort_by} {sort_order}
         limit %s offset %s;
     """
-    cursor.execute(query, (per_page, offset,))
+    cursor.execute(query, (search, search, like, like, per_page, offset))
     customers = cursor.fetchall()
     cursor.close()
 
