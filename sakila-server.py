@@ -142,7 +142,7 @@ def searchfilms():
 @app.route('/films/inventory/<film_id>')
 def film_inventory(film_id):
     cursor = mysql.connection.cursor()
-    cursor.execute("""
+    query = """
         select count(inventory.inventory_id)
         from inventory
         where inventory.film_id = %s
@@ -151,7 +151,8 @@ def film_inventory(film_id):
             from rental 
             where return_date is null
         );
-    """, (film_id,))
+    """
+    cursor.execute(query, (film_id,))
     inventory = cursor.fetchone()[0]
     cursor.close()
     return jsonify({"film_copies": inventory})
@@ -166,8 +167,7 @@ def rent_film():
         return jsonify({"message": "No id provided"})
     
     cursor = mysql.connection.cursor()
-
-    cursor.execute("""
+    query = """
         select inventory_id
         from inventory
         where film_id = %s
@@ -177,7 +177,8 @@ def rent_film():
             where return_date is NULL
         )
         limit 1;
-    """, (film_id,))
+    """
+    cursor.execute(query, (film_id,))
     inventory = cursor.fetchone()
 
     if not inventory:
@@ -186,11 +187,11 @@ def rent_film():
     
     inventory_id = inventory[0]
 
-    cursor.execute("""
+    query = """
         insert into rental (rental_date, inventory_id, customer_id, staff_id)
         values (now(), %s, %s, 1);
-    """, (inventory_id, customer_id))
-
+    """
+    cursor.execute(query, (inventory_id, customer_id))
     mysql.connection.commit()
     cursor.close()
 
@@ -199,17 +200,18 @@ def rent_film():
 @app.route('/return', methods=['POST'])
 def return_film():
     data = request.get_json()
+    cursor = mysql.connection.cursor()
     rental_id = data.get("rental_id")
 
     if not rental_id:
         return jsonify({"message": "No rental id provided"})
     
-    cursor = mysql.connection.cursor()
-    cursor.execute("""
+    query = """
         update rental
         set return_date = now()
         where rental_id = %s and return_date is null;
-    """, (rental_id,))
+    """
+    cursor.execute(query, (rental_id,))
 
     if cursor.rowcount == 0:
         cursor.close()
@@ -274,6 +276,90 @@ def customers():
     }
 
     return jsonify({'customers': customers, 'pagination': pagination})
+
+@app.route('/customers/<customer_id>', methods=['GET'])
+def customerDetails(customer_id):
+    cursor = mysql.connection.cursor()
+    query = """
+        select customer.customer_id, customer.first_name, customer.last_name, address.address, city.city, address.district, address.postal_code, country.country, customer.email, address.phone, store.store_id
+        from customer
+        join address on address.address_id = customer.address_id
+        join city on city.city_id = address.city_id
+        join country on country.country_id = city.country_id
+        join store on store.store_id = customer.store_id
+        where customer.customer_id = %s
+    """
+    cursor.execute(query, (customer_id,))
+    result = cursor.fetchone()
+    cursor.close()
+
+    if not result:
+        return jsonify({"message": "Customer not found"})
+    
+    keys = ["customer_id", "first_name", "last_name", "address", "city", "district", "postal_code", "country", "email", "phone", "store_id"]
+    return jsonify(dict(zip(keys, result)))
+
+@app.route('/customers/<customer_id>/rentals', methods=['GET'])
+def customerRentals(customer_id):
+    cursor = mysql.connection.cursor()
+    query = """
+        select film.film_id, film.title, rental.rental_date, rental.return_date
+        from rental
+        join inventory on inventory.inventory_id = rental.inventory_id
+        join film on film.film_id = inventory.film_id
+        where rental.customer_id = %s
+        order by rental.rental_date desc
+    """
+    cursor.execute(query, (customer_id,))
+    rows = cursor.fetchall()
+    cursor.close()
+
+    keys = ["film_id", "title", "rental_date", "return_date"]
+    rentals = [dict(zip(keys, row)) for row in rows]
+    return jsonify(rentals)
+
+@app.route('/customers/<customer_id>', methods=['PUT'])
+def updateCustomer(customer_id):
+    data = request.get_json()
+    cursor = mysql.connection.cursor()
+    query = """
+        select address.address_id
+        from customer
+        join address on address.address_id = customer.address_id
+        where customer.customer_id = %s
+    """
+    cursor.execute(query, (customer_id,))
+    row = cursor.fetchone()
+    address_id = row[0]
+
+    query = """
+        update customer
+        set first_name = %s,
+            last_name = %s,
+            email = %s,
+            store_id = %s
+        where customer_id = %s
+    """
+    cursor.execute(query, (
+        data.get("first_name"),
+        data.get("last_name"),
+        data.get("email"),
+        data.get("store_id"),
+        customer_id))
+    
+    query = """
+        update address 
+        set address = %s, phone = %s
+        where address_id = %s
+    """
+    cursor.execute(query, (
+        data.get("address"),
+        data.get("phone"),
+        address_id))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"message": "Customer details saved successfully!"})
 
 if __name__ == '__main__':
     app.run(debug=True)
