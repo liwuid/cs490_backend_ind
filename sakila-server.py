@@ -312,30 +312,57 @@ def handle_return(customer_id, film_id):
 @app.route('/customers', methods=['POST'])
 def add_customer():
     data = request.get_json()
+
+    required = ["first_name", "last_name", "email", "store_id", "address", "district", "city", "country", "phone"]
+    for field in required:
+        if not data.get(field):
+            return jsonify({"message": "Missing required fields"})
     cursor = mysql.connection.cursor()
 
     query = """
-        insert into address(address, district, city_id, postal_code, phone)
-        value (%s, %s, %s, %s, %s)
+        select country_id from country where country = %s
+    """
+    cursor.execute(query, (data['country'],))
+    row = cursor.fetchone()
+    if row:
+        country_id = row[0]
+    else:
+        cursor.execute("insert into country (country, last_update) values (%s, now())", (data['country'],))
+        country_id = cursor.lastrowid
+
+    query = """
+        select city_id from city where city = %s and country_id = %s
+    """
+    cursor.execute(query, (data['city'], country_id))
+    row = cursor.fetchone()
+    if row:
+        city_id = row[0];
+    else:
+        cursor.execute("insert into city (city, country_id, last_update) values (%s, %s, now())", (data['city'], country_id))
+        city_id = cursor.lastrowid
+
+    query = """
+        INSERT INTO address(address, address2, district, city_id, postal_code, phone, location, last_update)
+        VALUES (%s, '', %s, %s, %s, %s, ST_GeomFromText('POINT(0 0)'), NOW())
     """
     cursor.execute(query, (
-        data.get("address"),
-        data.get("district"),
-        data.get("city_id"),
-        data.get("postal_code"),
-        data.get("phone")
+        data["address"],
+        data["district"],
+        city_id,
+        data.get("postal_code", None),
+        data.get("phone", None)
     ))
     address_id = cursor.lastrowid
 
     query = """
-        insert into customer(store_id, first_name, last_name, email, address_id, active, create_date)
-        values(%s, %s, %s, %s, %s, 1, now())
+        insert into customer(store_id, first_name, last_name, email, address_id, active, create_date, last_update)
+        values(%s, %s, %s, %s, %s, 1, now(), now())
     """
     cursor.execute(query, (
-        data.get("store_id"),
-        data.get("first_name"),
-        data.get("last_name"),
-        data.get("email"),
+        data["store_id"],
+        data["first_name"],
+        data["last_name"],
+        data["email"],
         address_id
     ))
     mysql.connection.commit()
@@ -360,15 +387,15 @@ def delete_customer(customer_id):
         handle_return(customer_id, film_id)
 
     query = """
-        select customer.address_id 
+        select address_id 
         from customer 
-        where customer.customer_id = %s
+        where customer_id = %s
     """
-    cursor.execute(query, (customer_id))
+    cursor.execute(query, (customer_id,))
     row = cursor.fetchone()
     if not row:
         cursor.close()
-        return jsonify({"message:": "Customer not found"})
+        return jsonify({"message": "Customer not found"})
     address_id = row[0]
 
 
